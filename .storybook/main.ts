@@ -1,96 +1,110 @@
 import type { StorybookConfig } from '@storybook/react-webpack5';
-const path = require('path');
+import path from 'path';
+import * as sass from 'sass';
 
 const config: StorybookConfig = {
-	stories: ['../src/**/*.mdx', '../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
-	addons: [
-		'@storybook/addon-links',
-		'@storybook/addon-essentials',
-		'@storybook/addon-onboarding',
-		'@storybook/addon-interactions',
-		'@storybook/addon-styling-webpack',
-		{
-			name: '@storybook/addon-styling-webpack',
+  stories: ['../src/**/*.mdx', '../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
+  addons: [
+    '@storybook/addon-links',
+    '@storybook/addon-onboarding',
+    '@storybook/addon-docs',
+  ],
+  webpackFinal: async (config) => {
+    // Add TypeScript loader configuration
+    config.module?.rules?.push({
+      test: /\.tsx?$/,
+      use: [
+        {
+          loader: 'ts-loader',
+          options: {
+            transpileOnly: true,
+          },
+        },
+      ],
+      exclude: /node_modules/,
+    });
 
-			options: {
-				rules: [
-					{
-						test: /\.css$/,
-						sideEffects: true,
-						use: [
-							require.resolve('style-loader'),
-							{
-								loader: require.resolve('css-loader'),
-								options: {
-									// Want to add more CSS Modules options? Read more here: https://github.com/webpack-contrib/css-loader#modules
-									modules: {
-										auto: true,
-									},
-								},
-							},
-						],
-					},
-					{
-						test: /\.s[ac]ss$/,
-						sideEffects: true,
-						use: [
-							require.resolve('style-loader'),
-							{
-								loader: require.resolve('css-loader'),
-								options: {
-									// Want to add more CSS Modules options? Read more here: https://github.com/webpack-contrib/css-loader#modules
-									modules: {
-										auto: true,
-									},
-									importLoaders: 2,
-								},
-							},
-							require.resolve('resolve-url-loader'),
-							{
-								loader: require.resolve('sass-loader'),
-								options: {
-									// Want to add more Sass options? Read more here: https://webpack.js.org/loaders/sass-loader/#options
-									implementation: require.resolve('sass'),
-									sourceMap: true,
-									sassOptions: {},
-								},
-							},
-						],
-					},
-				],
-			},
-		},
-	],
-	webpackFinal: async (config) => {
-		if (config?.resolve?.alias) {
-			config.resolve.alias = {
-				fonts: path.resolve(__dirname, '..', './src/fonts'),
-				src: path.resolve(__dirname, '..', './src'),
-				components: path.resolve(__dirname, '..', './src/components'),
-			};
-		}
+    // Add CSS loader configuration
+    config.module?.rules?.push({
+      test: /\.css$/,
+      use: [
+        'style-loader',
+        {
+          loader: 'css-loader',
+          options: {
+            modules: {
+              auto: true,
+            },
+          },
+        },
+      ],
+    });
 
-		return config;
-	},
-	framework: {
-		name: '@storybook/react-webpack5',
-		options: {
-			builder: {
-				useSWC: true,
-			},
-		},
-	},
-	swc: () => ({
-		jsc: {
-			transform: {
-				react: {
-					runtime: 'automatic',
-				},
-			},
-		},
-	}),
-	docs: {
-		autodocs: 'tag',
-	},
+    // Add SCSS loader configuration
+    config.module?.rules?.push({
+      test: /\.s[ac]ss$/,
+      use: [
+        'style-loader',
+        {
+          loader: 'css-loader',
+          options: {
+            modules: {
+              auto: true,
+            },
+            importLoaders: 2,
+          },
+        },
+        'resolve-url-loader',
+        {
+          loader: 'sass-loader',
+          options: {
+            implementation: sass, // Use the imported sass
+            sourceMap: true,
+            sassOptions: {},
+          },
+        },
+      ],
+    });
+
+    // Configure aliases
+    if (config?.resolve?.alias) {
+      const projectRoot = process.cwd();
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        fonts: path.resolve(projectRoot, 'src/fonts'),
+        src: path.resolve(projectRoot, 'src'),
+        components: path.resolve(projectRoot, 'src/components'),
+      };
+    }
+
+    // Ensure TypeScript extensions are resolved
+    if (config.resolve) {
+      config.resolve.extensions = [
+        ...(config.resolve.extensions || []),
+        '.ts',
+        '.tsx',
+      ];
+    }
+
+    return config;
+  },
+  framework: {
+    name: '@storybook/react-webpack5',
+    options: {
+      builder: {
+        useSWC: false,
+      },
+    },
+  },
+  typescript: {
+    check: false,
+    reactDocgen: 'react-docgen-typescript',
+    reactDocgenTypescriptOptions: {
+      shouldExtractLiteralValuesFromEnum: true,
+      propFilter: (prop) => (prop.parent ? !/node_modules/.test(prop.parent.fileName) : true),
+    },
+  },
+  autodocs: 'tag',
 };
+
 export default config;
